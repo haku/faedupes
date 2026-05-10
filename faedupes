@@ -17,8 +17,8 @@ DbFile = namedtuple('DbFile',
     defaults=[None])
 
 argparser = argparse.ArgumentParser(allow_abbrev=False)
-argparser.add_argument('--quick',     action="store_true")
-argparser.add_argument('--reference', action="store_true")
+argparser.add_argument('--quick',   '-q', action="store_true")
+argparser.add_argument('--reference',     action="store_true")
 argparser.add_argument('--verbose', '-v', action="count", default=0)
 argparser.add_argument('--write-script', type=pathlib.Path, metavar="PATH")
 args = argparser.parse_args()
