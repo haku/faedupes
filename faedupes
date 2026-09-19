@@ -11,12 +11,15 @@ import pathlib
 import sqlite3
 import sys
 import time
+from typing import NamedTuple, Tuple
 
 DB_PATH = pathlib.Path.home() / ".config/faedupes/db"
 
-DbFile = namedtuple("DbFile",
-    field_names=["path", "size", "ctime", "hash"],
-    defaults=[None])
+class DbFile(NamedTuple):
+    path: str
+    size: int
+    ctime: int
+    hash: str
 
 argparser = argparse.ArgumentParser(allow_abbrev=False)
 argparser.add_argument("--quick",   "-q", action="store_true")
@@ -38,6 +41,7 @@ def fmt_size(size_bytes: int) -> str:
     if size_bytes < 1024:
       return f"{size_bytes:.2f} {unit}"
     size_bytes /= 1024
+  return f"{size_bytes:.2f} TiB"
 
 def dbcon(autocommit: bool=False) -> sqlite3.Connection:
   """Connect to sqlite database."""
@@ -103,11 +107,12 @@ def db_get_file(db: sqlite3.Connection, path: pathlib.Path) -> DbFile | None:
   """Find file entry in database."""
   rows = list(db.execute(
       "SELECT path, size, ctime, hash FROM files"
-      f" WHERE path = ?", (str(path),)))
+      " WHERE path = ?", (str(path),)))
   if len(rows) == 0:
     return None
-  elif len(rows) > 1:
-    raise Error(f"Multiple rows for: {path}")
+  if len(rows) > 1:
+    error = f"Multiple rows for: {path}"
+    raise Exception(error)
   row = rows[0]
   return DbFile(row[0], row[1], row[2], row[3])
 
@@ -202,7 +207,7 @@ def walk_files(start: pathlib.Path) -> None:
   """Recursively list files and put all of them in the DB."""
   with dbcon() as db:
     all_paths = []
-    for root, dirs, files in start.walk():
+    for root, _dirs, files in start.walk():
       paths = [start / root / f for f in files]
       paths = [p for p in paths if p.is_file(follow_symlinks=False)]
       paths = [p.resolve() for p in paths]
@@ -264,22 +269,22 @@ def safety_check(db: sqlite3.Connection, dbf_to_check: DbFile, root: pathlib.Pat
     sys.exit(1)
 
   for dbf in with_hash:
-    if not os.path.exists(dbf.path):
+    if not pathlib.Path(dbf.path).exists():
       print(f"ERROR: Other file does not exist: {dbf.path}")
       sys.exit(1)
 
-    if not os.path.isfile(dbf.path):
+    if not pathlib.Path(dbf.path).is_file():
       print(f"ERROR: Not a regular file: {dbf.path}")
       sys.exit(1)
 
-    if os.path.islink(dbf.path):
+    if pathlib.Path(dbf.path).is_symlink():
       print(f"ERROR: Is a symlink: {dbf.path}")
       sys.exit(1)
 
   others = [f for f in with_hash
-            if not os.path.samefile(dbf_to_check.path, f.path)]
+            if not Path(dbf_to_check.path).samefile(f.path)]
   if len(others) < 1:
-    print(f"ERROR: Other files were actually all the same file:")
+    print("ERROR: Other files were actually all the same file:")
     print(f"File: {dbf_to_check.path}")
     print("Others:")
     print("\n".join([f.path for f in with_hash]))
@@ -295,7 +300,7 @@ def safety_check(db: sqlite3.Connection, dbf_to_check: DbFile, root: pathlib.Pat
   outsiders = [o for o in others if not is_in_root(o.path)]
   if len(outsiders) < 1:
     if args.verbose:
-      print(f"WARNING: Other files are all under this directory:")
+      print("WARNING: Other files are all under this directory:")
       print(f"File: {dbf_to_check.path}")
       print("Others:")
       print("\n".join([o.path for o in others]))
@@ -311,7 +316,7 @@ def safety_check(db: sqlite3.Connection, dbf_to_check: DbFile, root: pathlib.Pat
         break
 
   if keep is None and args.verbose:
-    print(f"WARNING: Failed to find an exact keep file in:")
+    print("WARNING: Failed to find an exact keep file in:")
     print("\n".join([o.path for o in outsiders]))
 
   return keep
@@ -366,7 +371,7 @@ def cleanup_and_exit() -> None:
 if __name__ == "__main__":
   db_mktables()
 
-  pwd = pathlib.Path(".").resolve(strict=True)
+  pwd = pathlib.Path().resolve(strict=True)
   walk_files(pwd)
 
   if args.reference:
