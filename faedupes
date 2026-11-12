@@ -2,7 +2,7 @@
 
 """Fae's duplicate file finder."""
 
-from collections import namedtuple
+from typing import NamedTuple
 import argparse
 import filecmp
 import hashlib
@@ -14,9 +14,11 @@ import time
 
 DB_PATH = pathlib.Path.home() / ".config/faedupes/db"
 
-DbFile = namedtuple("DbFile",
-    field_names=["path", "size", "ctime", "hash"],
-    defaults=[None])
+class DbFile(NamedTuple):
+  path: str
+  size: int
+  ctime: int
+  hash: str
 
 argparser = argparse.ArgumentParser(allow_abbrev=False)
 argparser.add_argument("--quick",   "-q", action="store_true")
@@ -38,6 +40,7 @@ def fmt_size(size_bytes: int) -> str:
     if size_bytes < 1024:
       return f"{size_bytes:.2f} {unit}"
     size_bytes /= 1024
+  return f"{size_bytes:.2f} TiB"
 
 def dbcon(autocommit: bool=False) -> sqlite3.Connection:
   """Connect to sqlite database."""
@@ -103,7 +106,7 @@ def db_get_file(db: sqlite3.Connection, path: pathlib.Path) -> DbFile | None:
   """Find file entry in database."""
   rows = list(db.execute(
       "SELECT path, size, ctime, hash FROM files"
-      f" WHERE path = ?", (str(path),)))
+      " WHERE path = ?", (str(path),)))
   if len(rows) == 0:
     return None
   elif len(rows) > 1:
@@ -279,7 +282,7 @@ def safety_check(db: sqlite3.Connection, dbf_to_check: DbFile, root: pathlib.Pat
   others = [f for f in with_hash
             if not os.path.samefile(dbf_to_check.path, f.path)]
   if len(others) < 1:
-    print(f"ERROR: Other files were actually all the same file:")
+    print("ERROR: Other files were actually all the same file:")
     print(f"File: {dbf_to_check.path}")
     print("Others:")
     print("\n".join([f.path for f in with_hash]))
@@ -295,7 +298,7 @@ def safety_check(db: sqlite3.Connection, dbf_to_check: DbFile, root: pathlib.Pat
   outsiders = [o for o in others if not is_in_root(o.path)]
   if len(outsiders) < 1:
     if args.verbose:
-      print(f"WARNING: Other files are all under this directory:")
+      print("WARNING: Other files are all under this directory:")
       print(f"File: {dbf_to_check.path}")
       print("Others:")
       print("\n".join([o.path for o in others]))
@@ -311,7 +314,7 @@ def safety_check(db: sqlite3.Connection, dbf_to_check: DbFile, root: pathlib.Pat
         break
 
   if keep is None and args.verbose:
-    print(f"WARNING: Failed to find an exact keep file in:")
+    print("WARNING: Failed to find an exact keep file in:")
     print("\n".join([o.path for o in outsiders]))
 
   return keep
