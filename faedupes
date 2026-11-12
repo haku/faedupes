@@ -110,7 +110,7 @@ def db_get_file(db: sqlite3.Connection, path: pathlib.Path) -> DbFile | None:
   if len(rows) == 0:
     return None
   elif len(rows) > 1:
-    raise Error(f"Multiple rows for: {path}")
+    raise RuntimeError(f"Multiple rows for: {path}")
   row = rows[0]
   return DbFile(row[0], row[1], row[2], row[3])
 
@@ -331,8 +331,8 @@ def find_dupes(root: pathlib.Path) -> None:
     vprint(f"Hash dupes: {len(hash_dupes)}")
 
   script = [
-      "#!/usr/bin/env bash",
-      "set -eu",
+    "#!/usr/bin/env bash",
+    "set -eu",
   ]
 
   def add_to_script(dbf: DbFile, keep: bool) -> None:
@@ -340,7 +340,7 @@ def find_dupes(root: pathlib.Path) -> None:
     if not args.write_script:
       return
     # all on one like to make it easy to grep/filter.
-    script.append(f"rm -v \"{dbf.path.replace('"', r'\"')}\" # {keep.path}")
+    script.append(f'rm -v "{dbf.path.replace('"', r"\"")}" # {keep.path}')
 
   dupe_count = 0
   dupe_size = 0
